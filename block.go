@@ -109,7 +109,7 @@ func (b *Block) getPrice() (float32, error) {
 		WHERE created_at >= $1 
 		ORDER BY created_at ASC limit 1`, b.CreatedAt,
 	).Scan(&b.Price); err != nil {
-		return 0, errors.Wrap(err, "block: Cannot get bitcoin price")
+		return 0, errors.Wrapf(err, "block: Cannot get bitcoin price, block: %d, timestamp: %s", b.ID, b.CreatedAt)
 	}
 	return b.Price, nil
 }

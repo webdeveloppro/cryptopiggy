@@ -8,14 +8,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/vladyslav2/bitcoin2sql/pkg/json2sql"
 )
-
-var a App
 
 func TestMain(m *testing.M) {
 	a.Initialize(
@@ -24,24 +23,43 @@ func TestMain(m *testing.M) {
 		os.Getenv("TEST_DB_PASSWORD"),
 		os.Getenv("TEST_DB_NAME"))
 
-	recreateTables()
+	dir := "sql/"
+	err := filepath.Walk(dir, recreateTables())
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	code := m.Run()
 
 	os.Exit(code)
 }
 
-func recreateTables() {
+func recreateTables() filepath.WalkFunc {
+	return func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		return createTable(path)
+	}
+}
 
-	fileBuff, err := ioutil.ReadFile("sql/01_block.sql")
+func createTable(file string) error {
+	fileBuff, err := ioutil.ReadFile(file)
 	if err != nil {
-		log.Fatalf("Cannot read sql/01_block.sql, %v", err)
+		log.Fatalf("Cannot read %s, %v", file, err)
+		return err
 	}
 	sql := string(fileBuff)
 
 	if _, err := a.DB.Exec(sql); err != nil {
-		log.Fatalf("Cannot exec sql/01_block.sql as db query, %v", err)
+		log.Fatalf("Cannot exec %s as db query, %v", file, err)
+		return err
 	}
+	return nil
 }
 
 func executeRequest(req *http.Request) *httptest.ResponseRecorder {
@@ -141,6 +159,11 @@ func TestMainPage(t *testing.T) {
 }
 
 func TestWrongBlock(t *testing.T) {
+	// Empty tables
+	if err := truncateTables(); err != nil {
+		t.Error(err)
+	}
+
 	// We don't have this hash in database
 	req, _ := http.NewRequest("GET", "/000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b123456789", nil)
 	response := executeRequest(req)
@@ -185,6 +208,12 @@ func TestBlock(t *testing.T) {
 
 	// Load 5 test transactions
 	_, err = json2sql.ParseFile(a.DB, "fixtures/05_txout.json")
+	if err != nil {
+		t.Errorf("Cannot load fixture: %v", err)
+		return
+	}
+
+	_, err = json2sql.ParseFile(a.DB, "fixtures/06_btc_price.json")
 	if err != nil {
 		t.Errorf("Cannot load fixture: %v", err)
 		return

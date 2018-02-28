@@ -22,14 +22,17 @@ func (a *App) Initialize(host, user, password, dbname string) {
 
 	if host == "" {
 		log.Fatal("Empty host string, setup DB_HOST env")
+		host = "localhost"
 	}
 
 	if user == "" {
 		log.Fatal("Empty user string, setup DB_USER env")
+		return
 	}
 
 	if dbname == "" {
 		log.Fatal("Empty dbname string, setup DB_DBNAME env")
+		return
 	}
 
 	connectionString :=
@@ -76,18 +79,22 @@ func (a *App) showBlock(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err.Error() == "404" {
 			respondWithError(w, http.StatusNotFound, "Block not found")
-		} else {
-			log.Fatalf("error in block getbyhash, %v", err)
-			respondWithError(w, http.StatusBadRequest, "Cannot retrieve block")
+			return
 		}
+		log.Fatalf("error in block getbyhash, %v", err)
+		respondWithError(w, http.StatusBadRequest, "Cannot retrieve block")
+		return
 	}
 
 	if _, err := b.getTransactions(); err != nil {
 		log.Fatalf("error in block gettransactions, %v", err)
+		respondWithError(w, http.StatusNotFound, "block not found")
+		return
 	}
-
 	if _, err := b.getPrice(); err != nil {
 		log.Fatalf("error in block gettransactions, %v", err)
+		respondWithError(w, http.StatusServiceUnavailable, "prices for block not found")
+		return
 	}
 
 	respondWithJSON(w, http.StatusOK, b)

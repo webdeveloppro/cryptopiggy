@@ -6,4 +6,4 @@ CREATE TABLE btc_price(
   created_at timestamp not null default now()
 );
 
-index(created_at);
+create index created_at on btc_price(created_at);
