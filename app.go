@@ -98,13 +98,11 @@ func (a *App) showBlock(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusNotFound, "block not found")
 		return
 	}
-
 	if err := b.GetPrice(); err != nil {
 		log.Printf("error in block get price, %v", err)
 		respondWithError(w, http.StatusServiceUnavailable, "Prices for block not found")
 		return
 	}
-
 	respondWithJSON(w, http.StatusOK, b)
 }
 

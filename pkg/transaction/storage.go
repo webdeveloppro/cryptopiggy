@@ -28,69 +28,117 @@ func NewStorage(con *sql.DB) *PGStorage {
 // GetByWhere execute sql query for transaction and find txin/txout data
 func (pg *PGStorage) GetByWhere(sql string, val ...interface{}) ([]Transaction, error) {
 
-	rows, err := pg.con.Query(sql, val)
+	rows, err := pg.con.Query(sql, val...)
 	if err != nil {
 		return make([]Transaction, 0), errors.Wrapf(err, "transaction: Cannot select transaction %s, %v", sql, val)
 	}
 	defer rows.Close()
 
+	// 6 Steps to get data from sql to golang structures
+	// First we need to understand where if end of one transaction and begin of the new one
+	// Lets keep transaction/txin and txout indexes
+	tIdx := -1
+	tinIdx := -1
+	toutIdx := -1
+
 	// ToDo
 	// use len(rows) instead 0
 	trans := make([]Transaction, 0)
+
 	for rows.Next() {
+		// Get data to the temporary location
 		t := Transaction{}
-		if err := rows.Scan(&t.ID, &t.BlockID, &t.Hash); err != nil {
-			return trans, errors.Wrap(err, "transaction: Cannot scan for transaction")
+		txin := TxIn{}
+		txout := TxOut{}
+
+		if err := rows.Scan(
+			// Transaction
+			&t.ID, &t.BlockID, &t.Hash,
+			// txin
+			&txin.ID, &txin.Amount, &txin.PrevOut,
+			&txin.Size, &txin.SignatureScript, &txin.Sequence, &txin.Address,
+			// txout
+			&txout.ID, &txout.Value, &txout.PkScript,
+		); err != nil {
+			return trans, errors.Wrap(err, "Transaction: Cannot scan for transaction")
 		}
 
-		txinRows, err := pg.con.Query(`SELECT
-			ti.id, ti.amount, ti.prev_out, ti.size, ti.signature_script, ti.sequence, add.hash
-			FROM txin as ti JOIN address as add on ti.address_id = add.id
-			WHERE transaction_id = $1`, t.ID)
-		if err != nil {
-			return trans, errors.Wrap(err, "transaction: Cannot select for txint")
-		}
-		defer txinRows.Close()
+		txout.getAddresses()
 
-		// ToDo
-		// use len(rows) instead 0
-		t.TxIns = make([]TxIn, 0)
-		for txinRows.Next() {
-			var txin TxIn
-			if err := txinRows.Scan(
-				&txin.ID,
-				&txin.Amount,
-				&txin.PrevOut,
-				&txin.Size,
-				&txin.SignatureScript,
-				&txin.Sequence,
-				&txin.Address); err != nil {
-				return trans, errors.Wrap(err, "transaction: Cannot scan for txin")
+		// if t have different ID - that means we got new transaction
+		if tIdx == -1 || trans[tIdx].ID != t.ID {
+			trans = append(trans, t)
+			tIdx++
+
+			trans[tIdx].TxIns = make([]TxIn, 0)
+			trans[tIdx].TxOuts = make([]TxOut, 0)
+			tinIdx = -1
+			toutIdx = -1
+		}
+
+		// if txin have different ID - we got a new txin
+		if tinIdx == -1 || trans[tIdx].TxIns[tinIdx].ID != txin.ID {
+			trans[tIdx].TxIns = append(trans[tIdx].TxIns, txin)
+			tinIdx++
+		}
+
+		// if txin have different ID - we got a new txin
+		if toutIdx == -1 || trans[tIdx].TxOuts[toutIdx].ID != txout.ID {
+			trans[tIdx].TxOuts = append(trans[tIdx].TxOuts, txout)
+			toutIdx++
+		}
+
+		/*
+
+			txinRows, err := pg.con.Query(`SELECT
+				ti.id, ti.amount, ti.prev_out, ti.size, ti.signature_script, ti.sequence, add.hash
+				FROM txin as ti JOIN address as add on ti.address_id = add.id
+				WHERE transaction_id = $1`, t.ID)
+			if err != nil {
+				return trans, errors.Wrap(err, "transaction: Cannot select for txint")
 			}
-			t.TxIns = append(t.TxIns, txin)
-		}
+			defer txinRows.Close()
 
-		txoutRows, err := pg.con.Query(`SELECT 
-			id, val, pk_script
-			FROM txout as tot
-			WHERE transaction_id = $1`, t.ID)
-		if err != nil {
-			return trans, errors.Wrap(err, "transaction: Cannot select from txout")
-		}
-		defer txoutRows.Close()
-
-		// ToDo
-		// use len(rows) instead 0
-		t.TxOuts = make([]TxOut, 0)
-		for txoutRows.Next() {
-			var txout TxOut
-			if err := txoutRows.Scan(&txout.ID, &txout.Value, &txout.PkScript); err != nil {
-				return trans, errors.Wrap(err, "transaction: Cannot scan for txout")
+			// ToDo
+			// use len(rows) instead 0
+			t.TxIns = make([]TxIn, 0)
+			for txinRows.Next() {
+				var txin TxIn
+				if err := txinRows.Scan(
+					&txin.ID,
+					&txin.Amount,
+					&txin.PrevOut,
+					&txin.Size,
+					&txin.SignatureScript,
+					&txin.Sequence,
+					&txin.Address); err != nil {
+					return trans, errors.Wrap(err, "transaction: Cannot scan for txin")
+				}
+				t.TxIns = append(t.TxIns, txin)
 			}
-			txout.getAddresses()
-			t.TxOuts = append(t.TxOuts, txout)
-		}
-		trans = append(trans, t)
+
+			txoutRows, err := pg.con.Query(`SELECT
+				id, val, pk_script
+				FROM txout as tot
+				WHERE transaction_id = $1`, t.ID)
+			if err != nil {
+				return trans, errors.Wrap(err, "transaction: Cannot select from txout")
+			}
+			defer txoutRows.Close()
+
+			// ToDo
+			// use len(rows) instead 0
+			t.TxOuts = make([]TxOut, 0)
+			for txoutRows.Next() {
+				var txout TxOut
+				if err := txoutRows.Scan(&txout.ID, &txout.Value, &txout.PkScript); err != nil {
+					return trans, errors.Wrap(err, "transaction: Cannot scan for txout")
+				}
+				txout.getAddresses()
+				t.TxOuts = append(t.TxOuts, txout)
+			}
+			trans = append(trans, t)
+		*/
 	}
 
 	return trans, nil

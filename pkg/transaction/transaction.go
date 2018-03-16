@@ -26,19 +26,37 @@ func FindTransactions(reader Storage, key string, val interface{}) ([]Transactio
 
 	if key == "address_hash" {
 		sql = fmt.Sprintf(`(SELECT
-			t.id, t.block_id, t.hash
-			FROM transaction as t JOIN txout as txo ON t.id = txo.transaction_id 
-			JOIN address as add ON txo.address_id=add.id WHERE add.hash=$1)
-			UNION (SELECT 
-				t.id, t.block_id, t.hash 
-				FROM transaction as t JOIN txin as txo ON t.id=txo.transaction_id 
-				JOIN address as add ON txo.address_id=add.id WHERE add.hash=$1)`)
+				t.id, t.block_id, t.hash, 
+				ti.id, ti.amount, ti.prev_out, ti.size, ti.signature_script, ti.sequence, add.hash,
+				tot.id, tot.val, tot.pk_script
+				FROM transaction as t JOIN txin as ti on t.id=ti.transaction_id 
+				JOIN address as add on ti.address_id = add.id
+				JOIN txout as tot on tot.transaction_id=t.id
+				WHERE add.hash = $1
+				ORDER BY t.id desc)
+			UNION (SELECT
+				t.id, t.block_id, t.hash, 
+				ti.id, ti.amount, ti.prev_out, ti.size, ti.signature_script, ti.sequence, add.hash,
+				tot.id, tot.val, tot.pk_script
+				FROM transaction as t JOIN txin as ti on t.id=ti.transaction_id 
+				JOIN address as add on ti.address_id = add.id
+				JOIN txout as tot on tot.transaction_id=t.id
+				JOIN address as add2 on tot.address_id = add2.id
+				WHERE add2.hash = $1
+				ORDER BY t.id desc)`)
 	} else {
 		sql = fmt.Sprintf(`SELECT
-			t.id, t.block_id, t.hash
-			FROM transaction as t
-			WHERE %s = $1`, key)
+			t.id, t.block_id, t.hash, 
+			ti.id, ti.amount, ti.prev_out, ti.size, ti.signature_script, ti.sequence, add.hash,
+			tot.id, tot.val, tot.pk_script
+			FROM transaction as t JOIN txin as ti on t.id=ti.transaction_id 
+			JOIN address as add on ti.address_id = add.id
+			JOIN txout as tot on tot.transaction_id=t.id
+			WHERE %s = $1
+			ORDER BY t.id desc`, key)
 	}
+
+	fmt.Println(sql, key, val)
 
 	return reader.GetByWhere(sql, val)
 }
