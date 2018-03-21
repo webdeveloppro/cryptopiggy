@@ -8,8 +8,8 @@ import (
 
 // Storage is main interface for operations with Block
 type Storage interface {
-	GetByHash(a *Address) error
-	Insert(a *Address) error
+	GetByHash(*Address) error
+	Save(*Address) error
 	GetTransactions(string) ([]transaction.Transaction, error)
 }
 
@@ -58,10 +58,12 @@ func (pg *PGStorage) Save(a *Address) error {
 		)
 	} else {
 		_, err = pg.con.Exec(`
-			UPDATE address set ballance = $1, income = $2, outcome = $3`,
+			UPDATE address set ballance = $1, income = $2, outcome = $3
+			WHERE id=$4`,
 			a.Ballance,
 			a.Income,
 			a.Outcome,
+			a.ID,
 		)
 	}
 	return err

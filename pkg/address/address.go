@@ -25,9 +25,9 @@ func New(storage Storage) *Address {
 	return &a
 }
 
-// Insert will create new record and ID
-func (a *Address) Insert() error {
-	return a.storage.Insert(a)
+// Save will create new record and ID
+func (a *Address) Save() error {
+	return a.storage.Save(a)
 }
 
 // GetByHash Find Address by Hash
