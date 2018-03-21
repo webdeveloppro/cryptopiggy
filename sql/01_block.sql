@@ -14,10 +14,15 @@ CREATE TABLE block (
 DROP TABLE IF EXISTS transaction CASCADE;
 CREATE TABLE transaction (
   id serial PRIMARY KEY,
-  hash varchar(64) not null default '' UNIQUE,
+  hash varchar(64) not null default '',
   block_id integer references block(id) ON DELETE CASCADE,
-  has_witness boolean not null default false
+  has_witness boolean not null default false,
+  txin jsonb NOT NULL DEFAULT '[]'::jsonb,
+  txout jsonb NOT NULL DEFAULT '[]'::jsonb,
+  addresses jsonb NOT NULL DEFAULT '[]'::jsonb     /* for quick search address transactions */
 );
+
+CREATE INDEX hash_transaction ON transaction(hash);
 
 DROP TABLE IF EXISTS address CASCADE;
 CREATE TABLE address (
@@ -29,12 +34,22 @@ CREATE TABLE address (
   updated_at timestamp not null default now()
 );
 
+DROP TABLE IF EXISTS address_log CASCADE;
+CREATE TABLE address_log (
+  id serial primary key,
+  address_id integer references address(id) ON DELETE CASCADE DEFAULT 1,
+  amount bigint,
+  created_at timestamp not null default now(),
+  transaction_id integer references transaction(id) ON DELETE CASCADE DEFAULT 1
+);
+
+/*
 DROP TABLE IF EXISTS txin CASCADE;
 create table txin (
   id serial primary key,
   transaction_id integer references transaction(id) ON DELETE CASCADE,
   amount  bigint not null default 0,
-  address_id integer references address(id) ON DELETE CASCADE DEFAULT NULL,
+  address_id integer references address(id) ON DELETE CASCADE DEFAULT 1, // should we ???
   prev_out varchar(64) not null default '',
   size int not null default 0,
   signature_script text default null,
@@ -46,10 +61,11 @@ DROP TABLE IF EXISTS txout CASCADE;
 CREATE TABLE txout (
   id serial primary key,
   transaction_id integer references transaction(id) ON DELETE CASCADE,
-  address_id integer references address(id) ON DELETE CASCADE,
+  address_id integer references address(id) ON DELETE CASCADE, // should we ??
   val bigint not null default 0,
   pk_script  text default null
 );
+*/
 
 /*
 CREATE TABLE address_log (

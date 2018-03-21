@@ -1,8 +1,6 @@
 package address
 
 import (
-	"fmt"
-
 	"github.com/pkg/errors"
 	"github.com/vladyslav2/bitcoin2sql/pkg/transaction"
 )
@@ -13,9 +11,9 @@ type Address struct {
 	UpdatedAt    string                    `json:"updated_at"`
 	Hash         string                    `json:"hash"`
 	Transactions []transaction.Transaction `json:"transactions"`
-	Income       int                       `json:"income"`
-	Outcome      int                       `json:"outcome"`
-	Ballance     int                       `json:"ballance"`
+	Income       int64                     `json:"income"`
+	Outcome      int64                     `json:"outcome"`
+	Ballance     int64                     `json:"ballance"`
 	storage      Storage
 }
 
@@ -24,11 +22,21 @@ func New(storage Storage) *Address {
 	a := Address{
 		storage: storage,
 	}
-	fmt.Println(a.Transactions, a.Transactions == nil)
 	return &a
 }
 
-// getTransactions show transaction
+// Insert will create new record and ID
+func (a *Address) Insert() error {
+	return a.storage.Insert(a)
+}
+
+// GetByHash Find Address by Hash
+func (a *Address) GetByHash(hash string) error {
+	a.Hash = hash
+	return a.storage.GetByHash(a)
+}
+
+// GetTransactions show transaction
 func (a *Address) GetTransactions() error {
 
 	var err error

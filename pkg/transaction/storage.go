@@ -9,6 +9,7 @@ import (
 
 // Storage general interface
 type Storage interface {
+	Insert(*Transaction) error
 	GetByWhere(string, ...interface{}) ([]Transaction, error)
 	GetPricePerTransaction([]Transaction) error
 }
@@ -23,6 +24,43 @@ func NewStorage(con *sql.DB) *PGStorage {
 	return &PGStorage{
 		con: con,
 	}
+}
+
+// Insert transaction to the database
+func (pg *PGStorage) Insert(t *Transaction) error {
+	sql := `
+			INSERT INTO transaction
+				(hash, block_id, has_witness, txin, txout, addresses)
+			VALUES
+				(
+					$1,
+					$2,
+					$3,
+					$4,
+					$5,
+					$6
+				)
+				RETURNING id`
+
+	err := pg.con.QueryRow(sql,
+		t.Hash,
+		t.BlockID,
+		t.HasWitness,
+		t.TxInJSONB(),
+		t.TxOutJSONB(),
+		t.AddressesJSONB(),
+	).Scan(&t.ID)
+
+	if err != nil {
+		if err.Error() == "pq: duplicate key value violates unique constraint \"transaction_hash_key\"" &&
+			t.Hash == "d5d27987d2a3dfc724e359870c6644b40e497bdc0589a033220fe15429d88599" {
+			// https://bitcoin.stackexchange.com/questions/71918/why-does-transaction-d5d27987d2a3dfc724e359870c6644b40e497bdc0589a033220fe15429d
+			return nil
+		}
+
+		return errors.Wrap(err, "insert transaction failed")
+	}
+	return nil
 }
 
 // GetByWhere execute sql query for transaction and find txin/txout data
@@ -63,7 +101,7 @@ func (pg *PGStorage) GetByWhere(sql string, val ...interface{}) ([]Transaction, 
 			return trans, errors.Wrap(err, "Transaction: Cannot scan for transaction")
 		}
 
-		txout.getAddresses()
+		//txout.getAddresses()
 
 		// if t have different ID - that means we got new transaction
 		if tIdx == -1 || trans[tIdx].ID != t.ID {

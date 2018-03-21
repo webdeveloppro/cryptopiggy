@@ -3,6 +3,7 @@ package block
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/vladyslav2/bitcoin2sql/pkg/transaction"
@@ -16,8 +17,8 @@ type Storage interface {
 	GetByHash(string) (*Block, error)
 	Insert(*Block) error
 	Last10() ([]Block, error)
-	getTransactions(int) ([]transaction.Transaction, error)
-	getPrice(string) (float32, error)
+	getTransactions(uint) ([]transaction.Transaction, error)
+	getPrice(time.Time) (float32, error)
 }
 
 // PGStorage provider that can handle read/write from database
@@ -31,34 +32,6 @@ func NewStorage(pg *sql.DB) PGStorage {
 		con: pg,
 	}
 }
-
-/*
-// NewPostgre will open db connection or return error
-func NewPostgre(host, user, password, dbname string) (pg PGStorage, err error) {
-
-	if host == "" {
-		log.Print("Empty host string, setup DB_HOST env")
-		host = "localhost"
-	}
-
-	if user == "" {
-		return pg, fmt.Errorf("Empty user string, setup DB_USER env")
-	}
-
-	if dbname == "" {
-		return pg, fmt.Errorf("Empty dbname string, setup DB_DBNAME env")
-	}
-
-	connectionString :=
-		fmt.Sprintf("host=%s user=%s password='%s' dbname=%s sslmode=disable", host, user, password, dbname)
-
-	pg.con, err = sql.Open("postgres", connectionString)
-	if err != nil {
-		return pg, fmt.Errorf("Cannot open postgresql connection: %v", err)
-	}
-	return pg, nil
-}
-*/
 
 // GetByHash pull user from postgresql database
 func (pg *PGStorage) GetByHash(hash string) (*Block, error) {
@@ -87,9 +60,12 @@ func (pg *PGStorage) GetByHash(hash string) (*Block, error) {
 // Insert new block in the database
 func (pg *PGStorage) Insert(b *Block) error {
 
+	// ToDo
+	// Create each block in  pg commit/rollback transaction
+	// BC2SQL.pg.BeginTx()
 	if err := pg.con.QueryRow(`
 		INSERT INTO block
-			(id, bits, height, nonce, version, hash_prev_block, hash_merkle_root, created_at, hash)
+			(bits, height, nonce, version, hash_prev_block, hash_merkle_root, created_at, hash)
 		VALUES
 			(
 				$1,
@@ -99,11 +75,9 @@ func (pg *PGStorage) Insert(b *Block) error {
 				$5,
 				$6,
 				$7,
-				$8,
-				$9
+				$8
 			)
 			RETURNING id`,
-		b.ID,
 		b.Bits,
 		b.Height,
 		b.Nonce,
@@ -115,6 +89,13 @@ func (pg *PGStorage) Insert(b *Block) error {
 	).Scan(&b.ID); err != nil {
 		err = errors.Wrap(err, "block: insert block failed")
 		return err
+	}
+
+	for _, t := range b.Transactions {
+		t.BlockID = b.ID
+		if err := t.Insert(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -138,13 +119,13 @@ func (pg *PGStorage) Last10() ([]Block, error) {
 }
 
 // getTransactions show transaction
-func (pg *PGStorage) getTransactions(id int) ([]transaction.Transaction, error) {
+func (pg *PGStorage) getTransactions(id uint) ([]transaction.Transaction, error) {
 	tranStorage := transaction.NewStorage(pg.con)
 	return transaction.FindTransactions(tranStorage, "block_id", id)
 }
 
 // getPricePerBlock return decimal price of bitcoin on the moment when block was created
-func (pg *PGStorage) getPrice(createdAt string) (float32, error) {
+func (pg *PGStorage) getPrice(createdAt time.Time) (float32, error) {
 	var price float32
 	err := pg.con.QueryRow(`SELECT 
 		price

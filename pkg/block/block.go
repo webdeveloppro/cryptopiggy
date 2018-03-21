@@ -2,6 +2,7 @@ package block
 
 import (
 	"log"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/vladyslav2/bitcoin2sql/pkg/transaction"
@@ -9,14 +10,14 @@ import (
 
 // Block Holds block data and table ID
 type Block struct {
-	ID             int                       `json:"id" default:""`
-	Bits           int                       `json:"bits"`
-	Height         int                       `json:"height"`
-	Nonce          int64                     `json:"nonce"`
-	Version        int                       `json:"version"`
+	ID             uint                      `json:"id" default:""`
+	Bits           uint32                    `json:"bits"`
+	Height         int32                     `json:"height"`
+	Nonce          uint32                    `json:"nonce"`
+	Version        int32                     `json:"version"`
 	HashPrevBlock  string                    `json:"hash_prev_block"`
 	HashMerkleRoot string                    `json:"hash_merkle_root"`
-	CreatedAt      string                    `json:"created_at"`
+	CreatedAt      time.Time                 `json:"created_at"`
 	Hash           string                    `json:"hash"`
 	Transactions   []transaction.Transaction `json:"transactions"`
 	Price          float32                   `json:"price"`

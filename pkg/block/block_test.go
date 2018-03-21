@@ -48,7 +48,7 @@ func (s FakeStorage) getTransactions(int) ([]transaction.Transaction, error) {
 	return make([]transaction.Transaction, 15), nil
 }
 
-func (s FakeStorage) getPricePerBlock(CreatedAt string) (float32, error) {
+func (s FakeStorage) getPrice(CreatedAt string) (float32, error) {
 	if CreatedAt == "right_date" {
 		return 100.00, nil
 	}
@@ -83,13 +83,13 @@ func TestGetTransactions(t *testing.T) {
 	t.Parallel()
 	b := New(FakeStorage{})
 
-	trans, _ := b.getTransactions()
+	trans, _ := b.GetTransactions()
 	if len(trans) != 0 {
 		t.Errorf("getTransactions return wrong amount should 0, got: %v", trans)
 	}
 
 	b.ID = 123
-	trans, _ = b.getTransactions()
+	trans, _ = b.GetTransactions()
 	if len(trans) != 15 {
 		t.Errorf("getTransactions return wrong amount should 15, got: %v", trans)
 	}
@@ -100,13 +100,13 @@ func TestGetPrice(t *testing.T) {
 	b := New(FakeStorage{})
 	b.CreatedAt = "right_date"
 
-	err := b.getPricePerBlock()
+	err := b.GetPrice()
 	if b.Price != 100.00 {
 		t.Errorf("getPrice return wrong amount should 100.00, got: %v", b.Price)
 	}
 
 	b.CreatedAt = "not_right_date"
-	err = b.getPricePerBlock()
+	err = b.GetPrice()
 	if err != ErrNoPrice {
 		t.Errorf("getPrice return wrong err message, should: %v, got: %v", ErrNoPrice, err)
 	}

@@ -8,7 +8,8 @@ import (
 
 // Storage is main interface for operations with Block
 type Storage interface {
-	GetByHash(string) (*Address, error)
+	GetByHash(a *Address) error
+	Insert(a *Address) error
 	GetTransactions(string) ([]transaction.Transaction, error)
 }
 
@@ -25,13 +26,12 @@ func NewStorage(pg *sql.DB) PGStorage {
 }
 
 // GetByHash return address by hash
-func (pg *PGStorage) GetByHash(hash string) (*Address, error) {
-	a := Address{storage: pg}
+func (pg *PGStorage) GetByHash(a *Address) error {
 	err := pg.con.QueryRow(`
 		SELECT id, updated_at, hash, income, outcome, ballance
 		FROM address
 		WHERE hash = $1
-	`, hash).Scan(
+	`, a.Hash).Scan(
 		&a.ID,
 		&a.UpdatedAt,
 		&a.Hash,
@@ -39,7 +39,32 @@ func (pg *PGStorage) GetByHash(hash string) (*Address, error) {
 		&a.Outcome,
 		&a.Ballance,
 	)
-	return &a, err
+	return err
+}
+
+// Save base on ID system will try to update object in database or create a new one
+func (pg *PGStorage) Save(a *Address) error {
+	var err error
+	if a.ID == 0 {
+		err = pg.con.QueryRow(`
+			INSERT INTO address(hash, income, outcome, ballance)
+			values($1, $2, $3, $4)
+			RETURNING ID`,
+			a.Hash,
+			a.Income,
+			a.Outcome,
+			a.Ballance).Scan(
+			&a.ID,
+		)
+	} else {
+		_, err = pg.con.Exec(`
+			UPDATE address set ballance = $1, income = $2, outcome = $3`,
+			a.Ballance,
+			a.Income,
+			a.Outcome,
+		)
+	}
+	return err
 }
 
 // GetTransactions show transaction
