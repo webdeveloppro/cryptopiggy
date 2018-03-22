@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx"
 	"github.com/pkg/errors"
 	"github.com/vladyslav2/bitcoin2sql/pkg/transaction"
 )
@@ -23,11 +24,11 @@ type Storage interface {
 
 // PGStorage provider that can handle read/write from database
 type PGStorage struct {
-	con *sql.DB
+	con *pgx.ConnPool
 }
 
 // NewStorage return storage reference
-func NewStorage(pg *sql.DB) PGStorage {
+func NewStorage(pg *pgx.ConnPool) PGStorage {
 	return PGStorage{
 		con: pg,
 	}

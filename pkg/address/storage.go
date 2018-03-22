@@ -1,8 +1,9 @@
 package address
 
 import (
-	"database/sql"
+	"fmt"
 
+	"github.com/jackc/pgx"
 	"github.com/vladyslav2/bitcoin2sql/pkg/transaction"
 )
 
@@ -10,16 +11,18 @@ import (
 type Storage interface {
 	GetByHash(*Address) error
 	Save(*Address) error
-	GetTransactions(string) ([]transaction.Transaction, error)
+	GetTransactions(uint) ([]transaction.Transaction, error)
+	Last10(string) ([]*Address, error)
+	MostRich() ([]*Address, error)
 }
 
 // PGStorage provider that can handle read/write from database
 type PGStorage struct {
-	con *sql.DB
+	con *pgx.ConnPool
 }
 
 // NewStorage return pgstorage
-func NewStorage(pg *sql.DB) PGStorage {
+func NewStorage(pg *pgx.ConnPool) PGStorage {
 	return PGStorage{
 		con: pg,
 	}
@@ -70,7 +73,51 @@ func (pg *PGStorage) Save(a *Address) error {
 }
 
 // GetTransactions show transaction
-func (pg *PGStorage) GetTransactions(hash string) ([]transaction.Transaction, error) {
+func (pg *PGStorage) GetTransactions(id uint) ([]transaction.Transaction, error) {
 	tranStorage := transaction.NewStorage(pg.con)
-	return transaction.FindTransactions(tranStorage, "address_hash", hash)
+	return transaction.FindTransactions(tranStorage, "address_hash", id)
+}
+
+// Last10 show last 10 address
+func (pg *PGStorage) Last10(order string) ([]*Address, error) {
+
+	if order == "" {
+		order = "id DESC"
+	}
+
+	addresses := make([]*Address, 0)
+	rows, err := pg.con.Query(
+		fmt.Sprintf(`
+			SELECT id, updated_at, hash, income, outcome, ballance
+			FROM address WHERE ballance != 0
+			ORDER BY %s
+			LIMIT 10`, order,
+		),
+	)
+
+	if err != nil {
+		return addresses, err
+	}
+
+	for rows.Next() {
+		a := &Address{}
+		if err := rows.Scan(
+			&a.ID,
+			&a.UpdatedAt,
+			&a.Hash,
+			&a.Income,
+			&a.Outcome,
+			&a.Ballance,
+		); err != nil {
+			return addresses, err
+		}
+		addresses = append(addresses, a)
+	}
+	return addresses, err
+}
+
+// MostRich show 10 richest addresses
+func (pg *PGStorage) MostRich() ([]*Address, error) {
+
+	return pg.Last10("ballance DESC")
 }

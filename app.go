@@ -3,10 +3,10 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 
+	"github.com/jackc/pgx"
 	"github.com/vladyslav2/bitcoin2sql/pkg/transaction"
 
 	"github.com/vladyslav2/bitcoin2sql/pkg/address"
@@ -19,36 +19,14 @@ import (
 // App holding routers and DB connection
 type App struct {
 	Router *mux.Router
-	DB     *sql.DB
+	DB     *pgx.ConnPool
 }
 
 // Initialize application and open db connection
-func (a *App) Initialize(host, user, password, dbname string) {
+func (a *App) Initialize(pg *pgx.ConnPool) {
 
-	if host == "" {
-		log.Fatal("Empty host string, setup DB_HOST env")
-		host = "localhost"
-	}
-
-	if user == "" {
-		log.Fatal("Empty user string, setup DB_USER env")
-		return
-	}
-
-	if dbname == "" {
-		log.Fatal("Empty dbname string, setup DB_DBNAME env")
-		return
-	}
-
-	connectionString :=
-		fmt.Sprintf("host=%s user=%s password='%s' dbname=%s sslmode=disable", host, user, password, dbname)
-
-	var err error
-	a.DB, err = sql.Open("postgres", connectionString)
-	if err != nil {
-		log.Fatalf("Cannot open postgresql connection: %v", err)
-	}
 	a.Router = mux.NewRouter()
+	a.DB = pg
 	a.initializeRoutes()
 }
 
@@ -70,13 +48,24 @@ func (a *App) initializeRoutes() {
 }
 
 func (a *App) mainPage(w http.ResponseWriter, r *http.Request) {
-	storage := block.NewStorage(a.DB)
-	blocks, err := storage.Last10()
+	storage := address.NewStorage(a.DB)
+	last10, err := storage.Last10("")
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
 	}
 
-	respondWithJSON(w, http.StatusOK, blocks)
+	rich10, err := storage.MostRich()
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	res := map[string]interface{}{
+		"last10": last10,
+		"rich10": rich10,
+	}
+
+	respondWithJSON(w, http.StatusOK, res)
 }
 
 func (a *App) showBlock(w http.ResponseWriter, r *http.Request) {
@@ -93,11 +82,12 @@ func (a *App) showBlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := b.GetTransactions(); err != nil {
+	if _, err = b.GetTransactions(); err != nil {
 		log.Printf("error in block gettransactions, %v", err)
 		respondWithError(w, http.StatusNotFound, "block not found")
 		return
 	}
+
 	if err := b.GetPrice(); err != nil {
 		log.Printf("error in block get price, %v", err)
 		respondWithError(w, http.StatusServiceUnavailable, "Prices for block not found")
@@ -110,28 +100,32 @@ func (a *App) showAddress(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
 	storage := address.NewStorage(a.DB)
-	address, err := storage.GetByHash(vars["hash"])
-	if err != nil {
+	addr := address.New(&storage)
+	if err := addr.GetByHash(vars["hash"]); err != nil {
 		if err == sql.ErrNoRows {
 			respondWithError(w, http.StatusNotFound, "Address not found")
 		} else {
+			log.Printf("error during show address, %v", err)
 			respondWithError(w, http.StatusBadRequest, "Cannot retrieve address")
 		}
+		return
 	}
 
-	if err := address.GetTransactions(); err != nil {
+	if err := addr.GetTransactions(); err != nil {
 		log.Printf("app: error in address gettransactions, %v", err)
 		respondWithError(w, http.StatusServiceUnavailable, "Cannot get transactions for address")
+		return
 	}
 	if err := transaction.GetPricePerTransaction(
 		transaction.NewStorage(a.DB),
-		address.Transactions,
+		addr.Transactions,
 	); err != nil {
 		log.Printf("app: error in address getprices, %v", err)
 		respondWithError(w, http.StatusServiceUnavailable, "Prices for transactions not found")
+		return
 	}
 
-	respondWithJSON(w, http.StatusOK, address)
+	respondWithJSON(w, http.StatusOK, addr)
 }
 
 func respondWithError(w http.ResponseWriter, code int, message string) {

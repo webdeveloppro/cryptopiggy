@@ -15,8 +15,6 @@ var ErrNonStandard = fmt.Errorf("Non standard output")
 
 // TxIn transaction incoming data
 type TxIn struct {
-	ID              int `json:"id"`
-	AddressID       int
 	Amount          int64  `json:"amount"`
 	PrevOut         string `json:"prev_out"`
 	Size            int    `json:"size"`
@@ -24,11 +22,11 @@ type TxIn struct {
 	Sequence        uint32 `json:"sequence"`
 	Witness         string `json:"witness"`
 	Address         string `json:"address"`
+	AddressID       uint   `json:"address_id"`
 }
 
 // TxOut transaction outcoming data
 type TxOut struct {
-	ID        int      `json:"id"`
 	PkScript  string   `json:"pk_script"` // Hex version of PkScript
 	Value     int64    `json:"val"`
 	Addresses []string `json:"addresses"`

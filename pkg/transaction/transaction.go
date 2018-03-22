@@ -19,7 +19,7 @@ type Transaction struct {
 	Price      float32 `json:"price"`
 	TxIns      []TxIn  `json:"txins"`
 	TxOuts     []TxOut `json:"txouts"`
-	Addresses  []int
+	Addresses  []uint
 	storage    Storage
 }
 
@@ -40,31 +40,18 @@ func FindTransactions(reader Storage, key string, val interface{}) ([]Transactio
 	var sql string
 
 	if key == "address_hash" {
-		sql = fmt.Sprintf(`(SELECT
-				t.id, t.block_id, t.hash, t.txin, t.txout 
-				WHERE add.hash = $1
-				ORDER BY t.id desc)
-			UNION (SELECT
-				t.id, t.block_id, t.hash, 
-				ti.id, ti.amount, ti.prev_out, ti.size, ti.signature_script, ti.sequence, add.hash,
-				tot.id, tot.val, tot.pk_script
-				FROM transaction as t JOIN txin as ti on t.id=ti.transaction_id 
-				JOIN address as add on ti.address_id = add.id
-				JOIN txout as tot on tot.transaction_id=t.id
-				JOIN address as add2 on tot.address_id = add2.id
-				WHERE add2.hash = $1
-				ORDER BY t.id desc)`)
-	} else {
 		sql = fmt.Sprintf(`SELECT
-			t.id, t.block_id, t.hash, 
-			ti.id, ti.amount, ti.prev_out, ti.size, ti.signature_script, ti.sequence, add.hash,
-			tot.id, tot.val, tot.pk_script
-			FROM transaction as t JOIN txin as ti on t.id=ti.transaction_id 
-			JOIN address as add on ti.address_id = add.id
-			JOIN txout as tot on tot.transaction_id=t.id
+				id, block_id, hash, has_witness, txin, txout 
+				FROM transaction where addresses@>'%d'
+				ORDER BY id desc`, val)
+		return reader.GetByWhere(sql)
+	}
+
+	sql = fmt.Sprintf(`SELECT
+			id, block_id, hash, has_witness, txin, txout 
+			FROM transaction as t
 			WHERE %s = $1
 			ORDER BY t.id desc`, key)
-	}
 
 	return reader.GetByWhere(sql, val)
 }
@@ -73,7 +60,7 @@ func FindTransactions(reader Storage, key string, val interface{}) ([]Transactio
 func FindTransaction(reader Storage, key string, val interface{}) (Transaction, error) {
 
 	sql := fmt.Sprintf(`SELECT
-			t.id, t.block_id, t.hash
+			id, block_id, hash, has_witness, txin, txout 
 			FROM transaction as t
 			WHERE %s = $1`, key)
 
@@ -128,6 +115,7 @@ func (t *Transaction) TxInJSONB() string {
 		pgQuery = fmt.Sprintf(`%s,{
   "amount": %d,
   "address_id": %d,
+  "address": "%s",
   "prev_out": "%s",
   "size": %d,
   "signature_script": "%s",
@@ -136,6 +124,7 @@ func (t *Transaction) TxInJSONB() string {
 			pgQuery,
 			in.Amount,
 			in.AddressID,
+			in.Address,
 			in.PrevOut,
 			in.Size,
 			in.SignatureScript,
