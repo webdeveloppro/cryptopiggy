@@ -1,7 +1,6 @@
 package block
 
 import (
-	"database/sql"
 	"fmt"
 	"time"
 
@@ -135,7 +134,7 @@ func (pg *PGStorage) getPrice(createdAt time.Time) (float32, error) {
 		ORDER BY created_at ASC limit 1`, createdAt,
 	).Scan(&price)
 
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		return 0, ErrNoPrice
 	}
 

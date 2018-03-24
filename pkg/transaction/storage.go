@@ -1,7 +1,6 @@
 package transaction
 
 import (
-	"database/sql"
 	"log"
 
 	"github.com/jackc/pgx"
@@ -122,7 +121,7 @@ func (pg *PGStorage) GetPricePerTransaction(trans []Transaction) error {
 			t.BlockID,
 		).Scan(&t.Price)
 
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			log.Printf("block: Cannot get bitcoin price, trans: %s, err: %v", t.Hash, err)
 			t.Price = 0.00
 		} else {

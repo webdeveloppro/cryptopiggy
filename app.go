@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -60,9 +59,18 @@ func (a *App) mainPage(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	blockStorage := block.NewStorage(a.DB)
+	blocks, err := blockStorage.Last10()
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	res := map[string]interface{}{
-		"last10": last10,
-		"rich10": rich10,
+		"addresses": last10,
+		"rich10":    rich10,
+		"blocks":    blocks,
 	}
 
 	respondWithJSON(w, http.StatusOK, res)
@@ -74,7 +82,7 @@ func (a *App) showBlock(w http.ResponseWriter, r *http.Request) {
 	storage := block.NewStorage(a.DB)
 	b, err := storage.GetByHash(vars["hash"])
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			respondWithError(w, http.StatusNotFound, "Block not found")
 			return
 		}
@@ -102,7 +110,7 @@ func (a *App) showAddress(w http.ResponseWriter, r *http.Request) {
 	storage := address.NewStorage(a.DB)
 	addr := address.New(&storage)
 	if err := addr.GetByHash(vars["hash"]); err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			respondWithError(w, http.StatusNotFound, "Address not found")
 		} else {
 			log.Printf("error during show address, %v", err)

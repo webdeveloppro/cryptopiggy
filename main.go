@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/jackc/pgx"
@@ -38,31 +39,42 @@ func main() {
 		return
 	}
 
-	connPoolConfig := pgx.ConnPoolConfig{
-		ConnConfig: pgx.ConnConfig{
-			Host:     host,
-			User:     user,
-			Password: dbpassword,
-			Database: dbname,
-		},
-		MaxConnections: 100,
-	}
-
-	pool, err := pgx.NewConnPool(connPoolConfig)
-	if err != nil {
-		log.Fatalf("Unable to create connection pool %v", err)
-	}
-
 	if t == "webapp" {
+		connPoolConfig := pgx.ConnPoolConfig{
+			ConnConfig: pgx.ConnConfig{
+				Host:     host,
+				User:     user,
+				Password: dbpassword,
+				Database: dbname,
+			},
+			MaxConnections: 100,
+		}
+
+		pool, err := pgx.NewConnPool(connPoolConfig)
+		if err != nil {
+			log.Fatalf("Unable to create connection pool %v", err)
+		}
+
 		a.Initialize(pool)
 		a.Run("")
 	} else if t == "wsapp" {
-		ws.Initialize(
-			os.Getenv("DB_HOST"),
-			os.Getenv("DB_USERNAME"),
-			os.Getenv("DB_PASSWORD"),
-			os.Getenv("DB_NAME"))
+		conn, err := pgx.Connect(
+			pgx.ConnConfig{
+				Host:     host,
+				User:     user,
+				Password: dbpassword,
+				Database: dbname,
+			},
+		)
 
+		if err != nil {
+			log.Fatalf("Unable to create connection %v", err)
+		}
+
+		ws.Initialize(conn)
 		ws.Run("")
+		log.Fatal(http.ListenAndServe(":8082", nil))
 	}
+
+	log.Fatal("Please use one of the options: webapp, wsapp")
 }

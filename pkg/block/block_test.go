@@ -1,9 +1,9 @@
 package block
 
 import (
-	"database/sql"
 	"testing"
 
+	"github.com/jackc/pgx"
 	"github.com/vladyslav2/bitcoin2sql/pkg/transaction"
 )
 
@@ -30,7 +30,7 @@ func (s FakeStorage) GetByHash(hash string) (*Block, error) {
 	}
 
 	if hash == "notexisthash" {
-		return &bl, sql.ErrNoRows
+		return &bl, pgx.ErrNoRows
 	}
 
 	panic("hash do not match anything, please verify email address")
@@ -65,7 +65,7 @@ func TestGetByHash(t *testing.T) {
 	}
 
 	b2, err := s.GetByHash("notexisthash")
-	if err != sql.ErrNoRows {
+	if err != pgx.ErrNoRows {
 		t.Errorf("GetByHash return wrong error for not existing block, %v, %v", b2, err)
 	}
 }
