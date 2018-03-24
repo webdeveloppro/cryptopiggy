@@ -19,3 +19,17 @@ In additonal it gives ability to find all transactions connected with address
 
 ### Transactions
 Transaction structure provide a convenient way to to convert txin/txout data to jsonb format, look up for transactions base on search parameters and bitcoin price per transaction
+
+
+## Installation
+You need to have converted version of the bitcoin blockchain (see https://github.com/webdeveloppro/btcd2sql)
+
+Before, prepare your golang envoirement
+```
+git clone https://github.com/webdeveloppro/cryptopiggy
+cd cryptopiggy
+vi .env <-- setup database credentials 
+go build
+go run webapp <--to run RESTFUL http endpoints
+go run wsapp <-- to run websocket push server
+```
