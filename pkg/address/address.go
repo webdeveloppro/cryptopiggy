@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/vladyslav2/bitcoin2sql/pkg/transaction"
+	"github.com/webdeveloppro/cryptopiggy/pkg/transaction"
 )
 
 // Address Holds block data and table ID

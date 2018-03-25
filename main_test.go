@@ -13,7 +13,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vladyslav2/bitcoin2sql/pkg/json2sql"
 )
 
 func TestMain(m *testing.M) {

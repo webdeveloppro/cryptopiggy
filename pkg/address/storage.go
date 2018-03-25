@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx"
-	"github.com/vladyslav2/bitcoin2sql/pkg/transaction"
+	"github.com/webdeveloppro/cryptopiggy/pkg/transaction"
 )
 
 // Storage is main interface for operations with Block
