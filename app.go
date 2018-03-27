@@ -6,9 +6,9 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx"
-	"github.com/webdeveloppro/cryptopiggy/pkg/transaction"
 	"github.com/webdeveloppro/cryptopiggy/pkg/address"
 	"github.com/webdeveloppro/cryptopiggy/pkg/block"
+	"github.com/webdeveloppro/cryptopiggy/pkg/transaction"
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
@@ -97,8 +97,8 @@ func (a *App) showBlock(w http.ResponseWriter, r *http.Request) {
 
 	if err := b.GetPrice(); err != nil {
 		log.Printf("error in block get price, %v", err)
-		respondWithError(w, http.StatusServiceUnavailable, "Prices for block not found")
-		return
+		// respondWithError(w, http.StatusServiceUnavailable, "Prices for block not found")
+		// return
 	}
 	respondWithJSON(w, http.StatusOK, b)
 }
@@ -146,12 +146,12 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 		log.Fatalf("Cannot convert data to json, %v", err)
 	}
 
-//	if origin := r.Header.Get("Origin"); origin != "" {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-REAL")
-		w.Header().Set("Content-Type", "application/json")
-//	}
+	//	if origin := r.Header.Get("Origin"); origin != "" {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-REAL")
+	w.Header().Set("Content-Type", "application/json")
+	//	}
 
 	// Stop here if its Preflighted OPTIONS request
 	//if r.Method == "OPTIONS" && r.Header.Get("Accept") == "*/*" {
