@@ -47,13 +47,13 @@ func (a *App) initializeRoutes() {
 
 func (a *App) mainPage(w http.ResponseWriter, r *http.Request) {
 	storage := address.NewStorage(a.DB)
-	last10, err := storage.Last10("")
+	last10, err := address.Last10(&storage, "")
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	rich10, err := storage.MostRich()
+	rich10, err := address.MostRich10(&storage)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, err.Error())
 		return

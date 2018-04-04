@@ -1,8 +1,6 @@
 package address
 
 import (
-	"fmt"
-
 	"github.com/jackc/pgx"
 	"github.com/webdeveloppro/cryptopiggy/pkg/transaction"
 )
@@ -10,10 +8,10 @@ import (
 // Storage is main interface for operations with Block
 type Storage interface {
 	GetByHash(*Address) error
-	Save(*Address) error
+	Insert(*Address) error
+	Update(*Address) error
 	GetTransactions(uint) ([]transaction.Transaction, error)
-	Last10(string) ([]*Address, error)
-	MostRich() ([]*Address, error)
+	GetAddresses(string, ...interface{}) ([]*Address, error)
 }
 
 // PGStorage provider that can handle read/write from database
@@ -45,30 +43,32 @@ func (pg *PGStorage) GetByHash(a *Address) error {
 	return err
 }
 
-// Save base on ID system will try to update object in database or create a new one
-func (pg *PGStorage) Save(a *Address) error {
+// Insert will create new address entity
+func (pg *PGStorage) Insert(a *Address) error {
 	var err error
-	if a.ID == 0 {
-		err = pg.con.QueryRow(`
-			INSERT INTO address(hash, income, outcome, ballance)
-			values($1, $2, $3, $4)
-			RETURNING ID`,
-			a.Hash,
-			a.Income,
-			a.Outcome,
-			a.Ballance).Scan(
-			&a.ID,
-		)
-	} else {
-		_, err = pg.con.Exec(`
+	err = pg.con.QueryRow(`
+		INSERT INTO address(hash, income, outcome, ballance)
+		values($1, $2, $3, $4)
+		RETURNING ID`,
+		a.Hash,
+		a.Income,
+		a.Outcome,
+		a.Ballance).Scan(
+		&a.ID)
+	return err
+}
+
+// Update will update address using id field
+func (pg *PGStorage) Update(a *Address) error {
+	var err error
+	_, err = pg.con.Exec(`
 			UPDATE address set ballance = $1, income = $2, outcome = $3
 			WHERE id=$4`,
-			a.Ballance,
-			a.Income,
-			a.Outcome,
-			a.ID,
-		)
-	}
+		a.Ballance,
+		a.Income,
+		a.Outcome,
+		a.ID,
+	)
 	return err
 }
 
@@ -78,26 +78,16 @@ func (pg *PGStorage) GetTransactions(id uint) ([]transaction.Transaction, error)
 	return transaction.FindTransactions(tranStorage, "address_hash", id)
 }
 
-// Last10 show last 10 address
-func (pg *PGStorage) Last10(order string) ([]*Address, error) {
+// GetAddresses return address according to sql query
+func (pg *PGStorage) GetAddresses(sql string, args ...interface{}) ([]*Address, error) {
+	sql = "SELECT id, updated_at, hash, income, outcome, ballance FROM address " + sql
 
-	if order == "" {
-		order = "id DESC"
+	rows, err := pg.con.Query(sql, args)
+	if err != nil {
+		return nil, err
 	}
 
 	addresses := make([]*Address, 0)
-	rows, err := pg.con.Query(
-		fmt.Sprintf(`
-			SELECT id, updated_at, hash, income, outcome, ballance
-			FROM address WHERE ballance != 0
-			ORDER BY %s
-			LIMIT 10`, order,
-		),
-	)
-
-	if err != nil {
-		return addresses, err
-	}
 
 	for rows.Next() {
 		a := &Address{}
@@ -114,10 +104,4 @@ func (pg *PGStorage) Last10(order string) ([]*Address, error) {
 		addresses = append(addresses, a)
 	}
 	return addresses, err
-}
-
-// MostRich show 10 richest addresses
-func (pg *PGStorage) MostRich() ([]*Address, error) {
-
-	return pg.Last10("ballance DESC")
 }

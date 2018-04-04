@@ -29,7 +29,10 @@ func New(storage Storage) *Address {
 
 // Save will create new record and ID
 func (a *Address) Save() error {
-	return a.storage.Save(a)
+	if a.ID == 0 {
+		return a.storage.Insert(a)
+	}
+	return a.storage.Update(a)
 }
 
 // GetByHash Find Address by Hash
@@ -42,7 +45,6 @@ func (a *Address) GetByHash(hash string) error {
 func (a *Address) GetTransactions() error {
 
 	var err error
-	a.Transactions = make([]transaction.Transaction, 0, 0)
 
 	if a.ID == 0 {
 		return nil
@@ -54,4 +56,20 @@ func (a *Address) GetTransactions() error {
 	}
 
 	return nil
+}
+
+// Last10 show last 10 address
+func Last10(storage Storage, order string) ([]*Address, error) {
+
+	if order == "" {
+		order = "ORDER BY id desc"
+	}
+
+	sql := "WHERE ballance != $1 ORDER BY " + order + " LIMIT 10"
+	return storage.GetAddresses(sql, []int{10})
+}
+
+// MostRich10 show 10 richest addresses
+func MostRich10(storage Storage) ([]*Address, error) {
+	return Last10(storage, "ballance DESC")
 }
