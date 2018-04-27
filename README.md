@@ -2,7 +2,7 @@
 
 Bitcoin application where you can search by address hash and see transaction connected with address, amounts and final ballance.
 Its extends bitcoin ledger with functionality which hard/perfomance costly to do. Like analyzing transactions/blocks and etc
-Like, lets say you want to see all transaction from a hash <xxx> for 2014 yea
+Like, lets say you want to see all transaction from a hash <xxx> for 2014 year
 
 In additional it tried to predict how much dollars you address have base on the time address recieve/send bitcoins.
 
@@ -33,7 +33,5 @@ go build
 go run webapp <--to run RESTFUL http endpoints
 go run wsapp <-- to run websocket push server
 ```
-
-You can see up and running version here http://crypto-piggy.webdevelop.biz/
 
 Front end repositary located here https://github.com/webdeveloppro/cryptopiggy-frontend
